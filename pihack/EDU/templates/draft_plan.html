@@ -1,0 +1,127 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Draft Study Plan</title>
+  <link href="{% static 'styles.css' %}" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1>Your Draft Study Plan</h1>
+    <div id="plan-details"></div>
+    <div id="timer-display" class="timer"></div>
+    <div id="note-section" class="hidden">
+      <h2>Note Preparation</h2>
+      <p>Write your notes for <span id="current-subject"></span>:</p>
+      <textarea id="notes-input" rows="5" cols="50" placeholder="Add bullet points here..."></textarea>
+      <button id="save-notes-btn" class="btn">Save Notes</button>
+    </div>
+    <a href="index.html" class="btn">Back to Create Study Plan</a>
+  </div>
+
+  <script>
+    const studyPlan = JSON.parse(localStorage.getItem('studyPlan'));
+    const planDetails = document.getElementById('plan-details');
+    const timerDisplay = document.getElementById('timer-display');
+    const noteSection = document.getElementById('note-section');
+    const currentSubjectSpan = document.getElementById('current-subject');
+    const notesInput = document.getElementById('notes-input');
+    const saveNotesBtn = document.getElementById('save-notes-btn');
+
+    let currentSubjectIndex = 0;
+    let isBreak = false;
+    let isNotePhase = false;
+    let timeLeft = 25 * 60; // Initial 25 minutes for study
+
+    // Display the study plan
+    if (studyPlan) {
+      let planHTML = `
+        <p><strong>Study Type:</strong> ${studyPlan.studyType}</p>
+        <p><strong>Start Time:</strong> ${studyPlan.startTime}</p>
+        <ul>
+      `;
+
+      studyPlan.subjects.forEach((subject, index) => {
+        planHTML += `
+          <li>
+            <strong>${index + 1}. ${subject.name}</strong>
+            (<a href="${subject.resource}" target="_blank">Open Resource</a>)<br>
+            Priority: ${subject.priority}
+          </li>
+        `;
+      });
+
+      planHTML += `</ul>`;
+      planDetails.innerHTML = planHTML;
+    } else {
+      planDetails.innerHTML = `<p>No study plan found. Please create a plan first.</p>`;
+    }
+
+    // Timer Logic
+    function startTimer() {
+      if (currentSubjectIndex >= studyPlan.subjects.length) {
+        alert("You have completed all subjects in the study plan!");
+        return;
+      }
+
+      const subject = studyPlan.subjects[currentSubjectIndex];
+
+      if (isNotePhase) {
+        noteSection.classList.remove('hidden');
+        currentSubjectSpan.textContent = subject.name;
+        return;
+      }
+
+      noteSection.classList.add('hidden');
+
+      const interval = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timerDisplay.textContent = `${isBreak ? 'Break Time' : `Study ${subject.name}`} - ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+        if (timeLeft === 0) {
+          clearInterval(interval);
+
+          if (isBreak) {
+            currentSubjectIndex++;
+            isBreak = false;
+            timeLeft = 25 * 60; // Reset to 25 minutes
+            startTimer();
+          } else {
+            isNotePhase = true;
+            startTimer();
+          }
+        }
+
+        timeLeft--;
+      }, 1000);
+    }
+
+    // Save Notes
+    saveNotesBtn.addEventListener('click', () => {
+      const notes = notesInput.value.trim();
+      if (!notes) {
+        alert("Please write some notes before proceeding.");
+        return;
+      }
+
+      const subject = studyPlan.subjects[currentSubjectIndex];
+      const existingNotes = JSON.parse(localStorage.getItem('notes')) || {};
+      existingNotes[subject.name] = notes;
+      localStorage.setItem('notes', JSON.stringify(existingNotes));
+
+      notesInput.value = '';
+      isNotePhase = false;
+      isBreak = true;
+      timeLeft = 10 * 60; // Break time is 10 minutes
+      alert("Notes saved! Enjoy your break.");
+      startTimer();
+    });
+
+    // Start the first subject's timer
+    startTimer();
+  </script>
+</body>
+</html>
